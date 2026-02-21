@@ -1,6 +1,6 @@
 ---
 title: Implementing Login Feature in Chamjo Design
-date: 2026-02-21
+date: 2024-11-10
 excerpt: How Chamjo implemented authentication system with Supabase and the significant transformation of landing page.
 ---
 
