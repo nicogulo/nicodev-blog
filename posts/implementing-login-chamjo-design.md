@@ -1,9 +1,8 @@
 ---
 title: Implementing Login Feature in Chamjo Design
 date: 2024-11-10
-excerpt: How Chamjo implemented authentication system with Supabase and the significant transformation of landing page.
+excerpt: How Chamjo implemented authentication system with Supabase and created a landing page for guest users.
 ---
-
 ## Choosing Supabase as Auth Provider
 
 The decision to use **Supabase** as our authentication provider was not made lightly. Supabase offers several advantages that aligned with Chamjo's needs:
@@ -25,13 +24,18 @@ Chamjo chose **Google Sign-In** as the primary login method. This decision was b
 
 The login modal was designed with a **mobile-first** approach. For mobile view, we used a Bottom Sheet that's easier to reach with the thumb. For desktop, it's displayed as a Modal dialog that users are familiar with.
 
-## Landing Page Transformation
+## Landing Page Creation
 
-One of the most significant changes was how the landing page transformed based on user authentication status.
+One of the most significant changes during login implementation was the **creation of the landing page itself**.
 
-### Before Login (Guest User)
+### Before Auth Implementation
 
-The landing page displays various sections to introduce Chamjo:
+**There was no landing page.** The app started directly without any introduction or marketing page. Users had no way to understand what Chamjo was before signing up.
+
+### After Auth Implementation
+
+With the login system in place, a complete landing page was built to introduce Chamjo to new visitors:
+
 - **Hero Section** - Chamjo's main value proposition
 - **Content Section** - Platform features explanation
 - **Trusted Section** - Social proof from users
@@ -40,11 +44,14 @@ The landing page displays various sections to introduce Chamjo:
 - **FAQ Section** - Frequently asked questions
 - **CTA Section** - Call to action to encourage registration
 
-### After Login (Authenticated User)
+### Auth-Aware Routing
 
-Logged-in users are directly redirected to the `/browse` page containing Chamjo's main content. This provides a seamless experience - users don't need to see the landing page again after becoming registered users.
+The landing page and main content are now properly separated:
 
-The `/browse` page itself is well protected. If unauthenticated users try to access it, they will be redirected back to the landing page.
+- **Guest users** → See the landing page with all the marketing sections
+- **Authenticated users** → Redirected directly to `/browse` page, skipping the landing page entirely
+
+This provides a seamless experience - registered users don't need to see the marketing content again. The `/browse` page is also protected; unauthenticated users trying to access it are redirected back to the landing page.
 
 ## Timeline
 
