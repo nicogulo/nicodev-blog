@@ -65,6 +65,7 @@ export default function Admin() {
   const [token, setToken] = useState("");
   const [tokenInput, setTokenInput] = useState("");
   const [authError, setAuthError] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -76,14 +77,39 @@ export default function Admin() {
   });
 
   // Get headers with auth token
-  const getAuthHeaders = (): Record<string, string> => {
+  const getAuthHeaders = (t?: string): Record<string, string> => {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
     };
-    if (token) {
-      headers["X-Admin-Token"] = token;
+    const tokenToUse = t || token;
+    if (tokenToUse) {
+      headers["X-Admin-Token"] = tokenToUse;
     }
     return headers;
+  };
+
+  // Validate token by making a test API call
+  const validateToken = async (tokenToValidate: string): Promise<boolean> => {
+    try {
+      // Try to create a test post - if we get 401, token is wrong
+      // If we get 400 (validation error), token is correct
+      const res = await fetch("/api/posts", {
+        method: "POST",
+        headers: getAuthHeaders(tokenToValidate),
+        body: JSON.stringify({}), // Empty body will trigger validation error, not auth error
+      });
+      
+      // 401 = unauthorized (wrong token)
+      if (res.status === 401) {
+        return false;
+      }
+      
+      // Any other response means token is valid (even 400 means auth passed)
+      return true;
+    } catch (error) {
+      console.error("Token validation error:", error);
+      return false;
+    }
   };
 
   // Check auth status on mount
@@ -94,12 +120,21 @@ export default function Admin() {
         const status: AuthStatus = await res.json();
         setAuthStatus(status);
 
-        // If production mode, check for stored token
+        // If auth required, check for stored token and validate it
         if (status.requiresAuth) {
           const storedToken = localStorage.getItem(TOKEN_KEY);
           if (storedToken) {
-            setToken(storedToken);
-            setTokenInput(storedToken);
+            setIsValidating(true);
+            const isValid = await validateToken(storedToken);
+            setIsValidating(false);
+            
+            if (isValid) {
+              setToken(storedToken);
+              setTokenInput(storedToken);
+            } else {
+              // Token invalid, remove from storage
+              localStorage.removeItem(TOKEN_KEY);
+            }
           }
         }
       } catch (error) {
@@ -130,16 +165,28 @@ export default function Admin() {
     }
   }, [authStatus, token]);
 
-  // Handle token login
-  const handleTokenSubmit = (e: React.FormEvent) => {
+  // Handle token login with validation
+  const handleTokenSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tokenInput.trim()) {
       setAuthError("Token harus diisi");
       return;
     }
+
+    setIsValidating(true);
+    setAuthError("");
+
+    const isValid = await validateToken(tokenInput.trim());
+    setIsValidating(false);
+
+    if (!isValid) {
+      setAuthError("Token tidak valid. Silakan coba lagi.");
+      return;
+    }
+
+    // Token is valid, store it
     setToken(tokenInput.trim());
     localStorage.setItem(TOKEN_KEY, tokenInput.trim());
-    setAuthError("");
   };
 
   // Handle logout
@@ -296,8 +343,15 @@ export default function Admin() {
                 {authError && (
                   <p className="text-sm text-destructive">{authError}</p>
                 )}
-                <Button type="submit" className="w-full">
-                  Masuk
+                <Button type="submit" className="w-full" disabled={isValidating}>
+                  {isValidating ? (
+                    <>
+                      <IconLoader2 className="mr-2 size-4 animate-spin" />
+                      Memvalidasi...
+                    </>
+                  ) : (
+                    "Masuk"
+                  )}
                 </Button>
               </form>
               <Button
