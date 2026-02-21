@@ -3,7 +3,7 @@ import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
 import { Hono } from "hono";
-import { readdir } from "node:fs/promises";
+import { readdir, unlink } from "node:fs/promises";
 
 // AI agents: read README.md for navigation and contribution guidance.
 type Mode = "development" | "production";
@@ -104,6 +104,120 @@ app.get("/api/posts/:slug", async (c) => {
   } catch (error) {
     console.error("Error reading post:", error);
     return c.json({ error: "Failed to read post" }, 500);
+  }
+});
+
+/**
+ * API: Create new post
+ */
+app.post("/api/posts", async (c) => {
+  try {
+    const { title, date, excerpt, content, slug } = await c.req.json();
+    
+    if (!slug || !title) {
+      return c.json({ error: "Slug and title are required" }, 400);
+    }
+    
+    const safeSlug = slug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+    const filePath = `./posts/${safeSlug}.md`;
+    
+    // Check if already exists
+    if (await Bun.file(filePath).exists()) {
+      return c.json({ error: "Post with this slug already exists" }, 409);
+    }
+    
+    const frontmatter = `---
+title: ${title}
+date: ${date || new Date().toISOString().split("T")[0]}
+excerpt: ${excerpt || ""}
+---
+
+`;
+    
+    await Bun.write(filePath, frontmatter + (content || ""));
+    
+    return c.json({ 
+      success: true, 
+      slug: safeSlug,
+      message: "Post created successfully" 
+    }, 201);
+  } catch (error) {
+    console.error("Error creating post:", error);
+    return c.json({ error: "Failed to create post" }, 500);
+  }
+});
+
+/**
+ * API: Update existing post
+ */
+app.put("/api/posts/:slug", async (c) => {
+  const oldSlug = c.req.param("slug");
+  const { title, date, excerpt, content, slug: newSlug } = await c.req.json();
+  
+  try {
+    const oldPath = `./posts/${oldSlug}.md`;
+    
+    if (!(await Bun.file(oldPath).exists())) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+    
+    const frontmatter = `---
+title: ${title}
+date: ${date}
+excerpt: ${excerpt || ""}
+---
+
+`;
+    
+    // If slug changed, delete old file and create new one
+    if (newSlug && newSlug !== oldSlug) {
+      const safeSlug = newSlug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-");
+      const newPath = `./posts/${safeSlug}.md`;
+      
+      await unlink(oldPath);
+      await Bun.write(newPath, frontmatter + (content || ""));
+      
+      return c.json({ 
+        success: true, 
+        slug: safeSlug,
+        message: "Post updated successfully" 
+      });
+    }
+    
+    await Bun.write(oldPath, frontmatter + (content || ""));
+    
+    return c.json({ 
+      success: true, 
+      slug: oldSlug,
+      message: "Post updated successfully" 
+    });
+  } catch (error) {
+    console.error("Error updating post:", error);
+    return c.json({ error: "Failed to update post" }, 500);
+  }
+});
+
+/**
+ * API: Delete post
+ */
+app.delete("/api/posts/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const filePath = `./posts/${slug}.md`;
+  
+  try {
+    if (!(await Bun.file(filePath).exists())) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+    
+    await unlink(filePath);
+    
+    return c.json({ 
+      success: true, 
+      message: "Post deleted successfully" 
+    });
+  } catch (error) {
+    console.error("Error deleting post:", error);
+    return c.json({ error: "Failed to delete post" }, 500);
   }
 });
 
