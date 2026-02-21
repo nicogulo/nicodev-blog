@@ -19,12 +19,14 @@ const mode: Mode =
  */
 const ADMIN_TOKEN = process.env.BLOG_ADMIN_TOKEN || "";
 
-/**
- * Authentication middleware for write operations.
- * Validates X-Admin-Token header against BLOG_ADMIN_TOKEN environment variable.
- * If BLOG_ADMIN_TOKEN is not set, logs warning and allows all requests.
- */
-const requireAdminAuth = async (c: any, next: any) => {
+// Apply auth middleware using app.use() BEFORE routes are defined
+app.use("/api/posts/*", async (c, next) => {
+  // Only check auth for write methods (POST, PUT, DELETE)
+  const method = c.req.method;
+  if (method !== "POST" && method !== "PUT" && method !== "DELETE") {
+    return next();
+  }
+  
   // If no token configured, allow all requests (development convenience)
   if (!ADMIN_TOKEN) {
     console.warn("Warning: BLOG_ADMIN_TOKEN not set. Admin endpoints are open!");
@@ -35,16 +37,11 @@ const requireAdminAuth = async (c: any, next: any) => {
   const token = c.req.header("X-Admin-Token");
   
   if (!token || token !== ADMIN_TOKEN) {
-    return c.json({ error: "Unauthorized - Admin token required" }, 401);
+    return c.json({ error: "Unauthorized - Invalid or missing admin token" }, 401);
   }
   
   return next();
-};
-
-// Apply auth middleware to write endpoints
-app.post("/api/posts", requireAdminAuth);
-app.put("/api/posts/:slug", requireAdminAuth);
-app.delete("/api/posts/:slug", requireAdminAuth);
+});
 
 /**
  * API endpoint to check auth status (for frontend to know if token is needed)
@@ -52,7 +49,7 @@ app.delete("/api/posts/:slug", requireAdminAuth);
 app.get("/api/auth-status", (c) => {
   return c.json({
     mode,
-    requiresAuth: !!ADMIN_TOKEN, // Changed: now based on token presence, not mode
+    requiresAuth: !!ADMIN_TOKEN,
     hasToken: !!ADMIN_TOKEN,
   });
 });
