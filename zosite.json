@@ -3,7 +3,7 @@
   "local_port": 53348,
   "entrypoint": "bun run dev",
   "env": {
-    "BLOG_ADMIN_TOKEN": "CHANGE_THIS_TO_YOUR_SECRET_TOKEN"
+    "BLOG_ADMIN_TOKEN": "nicodev_blog_2026_k8s9m2x7q4w1"
   },
   "publish": {
     "label": "blog",
@@ -13,7 +13,7 @@
     "env": {
       "NODE_ENV": "production",
       "ZO_CLIENT_IDENTITY_TOKEN": "none",
-      "BLOG_ADMIN_TOKEN": "CHANGE_THIS_TO_YOUR_SECRET_TOKEN"
+      "BLOG_ADMIN_TOKEN": "nicodev_blog_2026_k8s9m2x7q4w1"
     }
   }
 }
