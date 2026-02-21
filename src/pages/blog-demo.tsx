@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { IconCalendar, IconArrowLeft, IconPencil, IconLoader2, IconSettings } from "@tabler/icons-react";
+import { IconCalendar, IconArrowLeft, IconPencil, IconLoader2 } from "@tabler/icons-react";
 import { marked } from "marked";
 import {
   Card,
@@ -142,20 +142,9 @@ export default function BlogDemo() {
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-6 py-16">
         <header className="mb-12">
-          <div className="flex items-center justify-between mb-4">
-            <Badge variant="outline">
-              Nico's Blog
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate("/admin")}
-              className="gap-1"
-            >
-              <IconSettings className="size-4" />
-              Kelola Post
-            </Button>
-          </div>
+          <Badge variant="outline" className="mb-4">
+            Nico's Blog
+          </Badge>
           <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
             Dev Notes
           </h1>
