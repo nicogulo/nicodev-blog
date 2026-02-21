@@ -9,6 +9,8 @@ import {
   IconCalendar,
   IconEye,
   IconEyeOff,
+  IconLock,
+  IconLogout,
 } from "@tabler/icons-react";
 import { marked } from "marked";
 import {
@@ -40,6 +42,14 @@ interface BlogPost {
   content?: string;
 }
 
+interface AuthStatus {
+  mode: string;
+  requiresAuth: boolean;
+  hasToken: boolean;
+}
+
+const TOKEN_KEY = "blog_admin_token";
+
 export default function Admin() {
   const navigate = useNavigate();
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -50,6 +60,12 @@ export default function Admin() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
 
+  // Auth state
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [token, setToken] = useState("");
+  const [tokenInput, setTokenInput] = useState("");
+  const [authError, setAuthError] = useState("");
+
   // Form state
   const [formData, setFormData] = useState({
     title: "",
@@ -58,6 +74,41 @@ export default function Admin() {
     excerpt: "",
     content: "",
   });
+
+  // Get headers with auth token
+  const getAuthHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (token) {
+      headers["X-Admin-Token"] = token;
+    }
+    return headers;
+  };
+
+  // Check auth status on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const res = await fetch("/api/auth-status");
+        const status: AuthStatus = await res.json();
+        setAuthStatus(status);
+
+        // If production mode, check for stored token
+        if (status.requiresAuth) {
+          const storedToken = localStorage.getItem(TOKEN_KEY);
+          if (storedToken) {
+            setToken(storedToken);
+            setTokenInput(storedToken);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check auth status:", error);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   // Fetch posts
   const fetchPosts = async () => {
@@ -72,9 +123,30 @@ export default function Admin() {
     }
   };
 
+  // Fetch posts when auth is ready
   useEffect(() => {
-    fetchPosts();
-  }, []);
+    if (authStatus && (!authStatus.requiresAuth || token)) {
+      fetchPosts();
+    }
+  }, [authStatus, token]);
+
+  // Handle token login
+  const handleTokenSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tokenInput.trim()) {
+      setAuthError("Token harus diisi");
+      return;
+    }
+    setToken(tokenInput.trim());
+    localStorage.setItem(TOKEN_KEY, tokenInput.trim());
+    setAuthError("");
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    setToken("");
+    localStorage.removeItem(TOKEN_KEY);
+  };
 
   // Open create dialog
   const handleCreate = () => {
@@ -136,13 +208,17 @@ export default function Admin() {
 
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(formData),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error("Token tidak valid. Silakan login ulang.");
+        }
         throw new Error(data.error || "Failed to save post");
       }
 
@@ -161,9 +237,15 @@ export default function Admin() {
     try {
       const res = await fetch(`/api/posts/${slug}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
 
       if (!res.ok) {
+        if (res.status === 401) {
+          handleLogout();
+          alert("Token tidak valid. Silakan login ulang.");
+          return;
+        }
         throw new Error("Failed to delete post");
       }
 
@@ -184,24 +266,89 @@ export default function Admin() {
     });
   };
 
+  // Show login form if production mode and no token
+  if (authStatus?.requiresAuth && !token) {
+    return (
+      <main className="min-h-screen bg-background">
+        <div className="mx-auto max-w-md px-6 py-16">
+          <Card>
+            <CardHeader className="text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                <IconLock className="size-6 text-primary" />
+              </div>
+              <CardTitle>Admin Login</CardTitle>
+              <CardDescription>
+                Masukkan token admin untuk mengakses halaman ini
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleTokenSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="token">Admin Token</Label>
+                  <Input
+                    id="token"
+                    type="password"
+                    placeholder="Masukkan token..."
+                    value={tokenInput}
+                    onChange={(e) => setTokenInput(e.target.value)}
+                  />
+                </div>
+                {authError && (
+                  <p className="text-sm text-destructive">{authError}</p>
+                )}
+                <Button type="submit" className="w-full">
+                  Masuk
+                </Button>
+              </form>
+              <Button
+                variant="ghost"
+                className="mt-4 w-full"
+                onClick={() => navigate("/")}
+              >
+                <IconArrowLeft className="mr-2 size-4" />
+                Kembali ke Blog
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-4xl px-6 py-16">
         {/* Header */}
         <header className="mb-8">
-          <Button
-            variant="ghost"
-            className="mb-4"
-            onClick={() => navigate("/")}
-          >
-            <IconArrowLeft className="mr-2 size-4" />
-            Kembali ke Blog
-          </Button>
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/")}
+            >
+              <IconArrowLeft className="mr-2 size-4" />
+              Kembali ke Blog
+            </Button>
+
+            {authStatus?.requiresAuth && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleLogout}
+                className="ml-auto text-muted-foreground"
+              >
+                <IconLogout className="mr-2 size-4" />
+                Logout
+              </Button>
+            )}
+          </div>
 
           <div className="flex items-center justify-between">
             <div>
               <Badge variant="outline" className="mb-4">
                 Post Management
+                {authStatus?.requiresAuth && (
+                  <span className="ml-2 text-green-500">• Authenticated</span>
+                )}
               </Badge>
               <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
                 Kelola Post

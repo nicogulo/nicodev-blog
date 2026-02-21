@@ -9,7 +9,8 @@
     "published_port": 52311,
     "env": {
       "NODE_ENV": "production",
-      "ZO_CLIENT_IDENTITY_TOKEN": "none"
+      "ZO_CLIENT_IDENTITY_TOKEN": "none",
+      "BLOG_ADMIN_TOKEN": "CHANGE_THIS_TO_YOUR_SECRET_TOKEN"
     }
   }
 }
