@@ -13,30 +13,26 @@ const mode: Mode =
   process.env.NODE_ENV === "production" ? "production" : "development";
 
 /**
- * Admin token for write operations in production mode.
+ * Admin token for write operations.
  * Set BLOG_ADMIN_TOKEN in environment to secure your blog.
- * In development mode, authentication is handled by Zo's built-in auth.
+ * If not set, admin endpoints will be open (not recommended for production).
  */
 const ADMIN_TOKEN = process.env.BLOG_ADMIN_TOKEN || "";
 
 /**
  * Authentication middleware for write operations.
- * In development: Skip auth (Zo handles authentication)
- * In production: Require X-Admin-Token header matching BLOG_ADMIN_TOKEN
+ * Validates X-Admin-Token header against BLOG_ADMIN_TOKEN environment variable.
+ * If BLOG_ADMIN_TOKEN is not set, logs warning and allows all requests.
  */
 const requireAdminAuth = async (c: any, next: any) => {
-  // In development mode, Zo authentication protects the site
-  if (mode === "development") {
+  // If no token configured, allow all requests (development convenience)
+  if (!ADMIN_TOKEN) {
+    console.warn("Warning: BLOG_ADMIN_TOKEN not set. Admin endpoints are open!");
     return next();
   }
 
-  // In production, require admin token
+  // Validate token
   const token = c.req.header("X-Admin-Token");
-  
-  if (!ADMIN_TOKEN) {
-    console.error("BLOG_ADMIN_TOKEN not configured in production!");
-    return c.json({ error: "Server misconfigured" }, 500);
-  }
   
   if (!token || token !== ADMIN_TOKEN) {
     return c.json({ error: "Unauthorized - Admin token required" }, 401);
@@ -56,7 +52,7 @@ app.delete("/api/posts/:slug", requireAdminAuth);
 app.get("/api/auth-status", (c) => {
   return c.json({
     mode,
-    requiresAuth: mode === "production",
+    requiresAuth: !!ADMIN_TOKEN, // Changed: now based on token presence, not mode
     hasToken: !!ADMIN_TOKEN,
   });
 });

@@ -2,6 +2,9 @@
   "name": "dev-nic",
   "local_port": 53348,
   "entrypoint": "bun run dev",
+  "env": {
+    "BLOG_ADMIN_TOKEN": "CHANGE_THIS_TO_YOUR_SECRET_TOKEN"
+  },
   "publish": {
     "label": "dev-nic",
     "type": "http",
