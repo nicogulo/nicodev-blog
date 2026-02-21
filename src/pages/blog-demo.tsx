@@ -11,6 +11,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+const SITE_NAME = "Nico Gulo";
+const SITE_DESCRIPTION = "Frontend Engineer at Reku. Writing about development, tech stack, and coding journey.";
+
 /**
  * Blog page - reads markdown files from posts/ directory.
  * 
@@ -81,6 +84,15 @@ export default function BlogDemo() {
 
   // Get base path without query params
   const basePath = location.pathname;
+
+  // Update document title when viewing an article
+  useEffect(() => {
+    if (currentPost) {
+      document.title = `${currentPost.title} - ${SITE_NAME}`;
+    } else {
+      document.title = `${SITE_NAME} - Dev Notes`;
+    }
+  }, [currentPost]);
 
   if (loading) {
     return (
