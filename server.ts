@@ -3,6 +3,7 @@ import type { ViteDevServer } from "vite";
 import { createServer as createViteServer } from "vite";
 import config from "./zosite.json";
 import { Hono } from "hono";
+import { readdir } from "node:fs/promises";
 
 // AI agents: read README.md for navigation and contribution guidance.
 type Mode = "development" | "production";
@@ -10,6 +11,101 @@ const app = new Hono();
 
 const mode: Mode =
   process.env.NODE_ENV === "production" ? "production" : "development";
+
+/**
+ * Parse frontmatter from markdown content
+ */
+function parseFrontmatter(content: string) {
+  const frontmatterRegex = /^---\n([\s\S]*?)\n---\n([\s\S]*)$/;
+  const match = content.match(frontmatterRegex);
+  
+  if (!match) {
+    return { frontmatter: {}, body: content };
+  }
+  
+  const frontmatterLines = match[1].split("\n");
+  const frontmatter: Record<string, string> = {};
+  
+  for (const line of frontmatterLines) {
+    const [key, ...valueParts] = line.split(":");
+    if (key && valueParts.length > 0) {
+      frontmatter[key.trim()] = valueParts.join(":").trim();
+    }
+  }
+  
+  return { frontmatter, body: match[2] };
+}
+
+/**
+ * Get slug from filename (remove .md extension)
+ */
+function slugFromFilename(filename: string): string {
+  return filename.replace(/\.md$/, "");
+}
+
+/**
+ * API: Get all posts
+ */
+app.get("/api/posts", async (c) => {
+  try {
+    const postsDir = "./posts";
+    const files = await readdir(postsDir);
+    const mdFiles = files.filter(f => f.endsWith(".md"));
+    
+    const posts = await Promise.all(
+      mdFiles.map(async (filename) => {
+        const filePath = `${postsDir}/${filename}`;
+        const content = await Bun.file(filePath).text();
+        const { frontmatter, body } = parseFrontmatter(content);
+        
+        return {
+          slug: slugFromFilename(filename),
+          title: frontmatter.title || "Untitled",
+          date: frontmatter.date || new Date().toISOString().split("T")[0],
+          excerpt: frontmatter.excerpt || "",
+          content: body,
+        };
+      })
+    );
+    
+    // Sort by date descending (newest first)
+    posts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    return c.json({ posts });
+  } catch (error) {
+    console.error("Error reading posts:", error);
+    return c.json({ posts: [] });
+  }
+});
+
+/**
+ * API: Get single post by slug
+ */
+app.get("/api/posts/:slug", async (c) => {
+  const slug = c.req.param("slug");
+  const filePath = `./posts/${slug}.md`;
+  
+  try {
+    const file = Bun.file(filePath);
+    if (!(await file.exists())) {
+      return c.json({ error: "Post not found" }, 404);
+    }
+    
+    const content = await file.text();
+    const { frontmatter, body } = parseFrontmatter(content);
+    
+    return c.json({
+      slug,
+      title: frontmatter.title || "Untitled",
+      date: frontmatter.date || new Date().toISOString().split("T")[0],
+      excerpt: frontmatter.excerpt || "",
+      content: body,
+    });
+  } catch (error) {
+    console.error("Error reading post:", error);
+    return c.json({ error: "Failed to read post" }, 500);
+  }
+});
 
 /**
  * Add any API routes here.
