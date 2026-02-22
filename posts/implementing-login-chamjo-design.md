@@ -95,7 +95,3 @@ The implementation of login feature in Chamjo shows that with proper planning an
 The main keys are choosing a mature provider (Supabase), using a secure approach (SSR), and paying attention to user experience on every platform (responsive login modal).
 
 This feature became the foundation that enabled Chamjo to develop other features requiring user authentication later on.
-
----
-
-*This article was written based on analysis of nicogulo/chamjo-app GitHub repository and the team's experience in developing Chamjo Design.*
